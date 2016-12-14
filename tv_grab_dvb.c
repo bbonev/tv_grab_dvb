@@ -67,6 +67,7 @@ static bool ignore_bad_dates = true;
 static bool ignore_updates = true;
 static bool use_chanidents = false;
 static bool silent = false;
+static bool merge_subt = false;
 
 typedef struct chninfo {
 	struct chninfo *next;
@@ -95,6 +96,7 @@ static void usage() {
 		"\t-s - silent - no status ouput\n"
 		"\t-u - output updated info - will result in repeated information\n"
 		"\t-e encoding - Use other than ISO-6937 default encoding\n"
+		"\t-S - merge sub-title text into title\n"
 		"\n", ProgName, demux);
 	_exit(1);
 } /*}}}*/
@@ -119,7 +121,7 @@ static int do_options(int arg_count, char **arg_strings) {
 	int fd;
 
 	while (1) {
-		int c = getopt_long(arg_count, arg_strings, "udscmpnht:o:f:i:e:", Long_Options, &Option_Index);
+		int c = getopt_long(arg_count, arg_strings, "Sudscmpnht:o:f:i:e:", Long_Options, &Option_Index);
 		if (c == EOF)
 			break;
 		switch (c) {
@@ -175,6 +177,9 @@ static int do_options(int arg_count, char **arg_strings) {
 		case 'e':
 			iso6937_encoding = optarg;
 			break;
+		case 'S':
+			merge_subt = true;
+			break;
 		case 'h':
 		case '?':
 			usage();
@@ -228,22 +233,37 @@ static void parseEventDescription(void *data, enum ER round) {
 		assert(evtlen < sizeof(evt));
 		memcpy(evt, (char *)&evtdesc->data, evtlen);
 		evt[evtlen] = '\0';
-		printf("\t<title lang=\"%s\">%s</title>\n", xmllang(&evtdesc->lang_code1), xmlify(evt));
+		if (!merge_subt)
+			printf("\t<title lang=\"%s\">%s</title>\n", xmllang(&evtdesc->lang_code1), xmlify(evt));
+		else {
+			int dsclen = evtdesc->data[evtlen];
+			printf("\t<title lang=\"%s\">%s", xmllang(&evtdesc->lang_code1), xmlify(evt));
+			assert(dsclen < sizeof(dsc));
+			memcpy(dsc, (char *)&evtdesc->data[evtlen+1], dsclen);
+			dsc[dsclen] = '\0';
+			if (*dsc) {
+				char *d = xmlify(dsc);
+				if (d && *d)
+					printf("%s", d);
+			}
+			printf("</title>\n");
+		}
 		return;
 	}
 
-	if (round == SUB_TITLE) {
-		int dsclen = evtdesc->data[evtlen];
-		assert(dsclen < sizeof(dsc));
-		memcpy(dsc, (char *)&evtdesc->data[evtlen+1], dsclen);
-		dsc[dsclen] = '\0';
+	if (!merge_subt)
+		if (round == SUB_TITLE) {
+			int dsclen = evtdesc->data[evtlen];
+			assert(dsclen < sizeof(dsc));
+			memcpy(dsc, (char *)&evtdesc->data[evtlen+1], dsclen);
+			dsc[dsclen] = '\0';
 
-		if (*dsc) {
-			char *d = xmlify(dsc);
-			if (d && *d)
-				printf("\t<sub-title lang=\"%s\">%s</sub-title>\n", xmllang(&evtdesc->lang_code1), d);
+			if (*dsc) {
+				char *d = xmlify(dsc);
+				if (d && *d)
+					printf("\t<sub-title lang=\"%s\">%s</sub-title>\n", xmllang(&evtdesc->lang_code1), d);
+			}
 		}
-	}
 } /*}}}*/
 
 /* Parse 0x4E Extended Event Descriptor. {{{ */

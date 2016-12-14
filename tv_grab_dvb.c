@@ -237,7 +237,7 @@ static void parseEventDescription(void *data, enum ER round) {
 			printf("\t<title lang=\"%s\">%s</title>\n", xmllang(&evtdesc->lang_code1), xmlify(evt));
 		else {
 			int dsclen = evtdesc->data[evtlen];
-			printf("\t<title lang=\"%s\">%s", xmllang(&evtdesc->lang_code1), xmlify(evt));
+			printf("\t<title lang=\"%s\">%s ", xmllang(&evtdesc->lang_code1), xmlify(evt));
 			assert(dsclen < sizeof(dsc));
 			memcpy(dsc, (char *)&evtdesc->data[evtlen+1], dsclen);
 			dsc[dsclen] = '\0';
